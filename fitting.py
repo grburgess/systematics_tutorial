@@ -82,7 +82,7 @@ class Fit(object):
 
 
         ax.set_xlabel('m')
-            
+        ax.set_ylim(bottom=0)
         return fig
 
 
@@ -197,9 +197,13 @@ class NormalFit(Fitter):
 
         def lnprior(theta):
             m = theta
-            if -5.0 < m < 5.0:
+
+            if (-5.0 < m < 5.0):
                 return 0.0
             return -np.inf
+
+            
+            return (-1.5) * np.log(1+m**2)
 
         # define a gaussian likelihood for the slope only
         def lnlike(theta, x, y, yerr):
@@ -212,6 +216,41 @@ class NormalFit(Fitter):
         self._lnlike = lnlike
 
 
+class NormalSysFit(Fitter):
+
+    def __init__(self, data_generator, latent_params, N=100, systematic=.5):
+
+        super(NormalSysFit, self).__init__(data_generator, latent_params, N, 1)
+
+        # define a prior for the slope only
+        self._systematic = systematic
+        
+        def lnprior(theta):
+            m = theta
+
+            if (-5.0 < m < 5.0):
+                return 0.0
+            return -np.inf
+
+            
+            return (-1.5) * np.log(1+m**2)
+
+        # define a gaussian likelihood for the slope only
+        def lnlike(theta, x, y, yerr):
+            m = theta
+
+            # add on the systematic
+            
+            
+            model = m * x + self._b_latent
+            inv_sigma2 = 1.0 / np.sqrt(yerr**2 + self._systematic**2)
+            return -0.5 * (np.sum((y - model)**2 * inv_sigma2))
+
+        self._lnprior = lnprior
+        self._lnlike = lnlike
+
+        
+
 class NormalSigmaFit(Fitter):
 
     def __init__(self, data_generator, latent_params, N=100):
@@ -221,17 +260,17 @@ class NormalSigmaFit(Fitter):
         # define a prior for the slope AND the sigma of the data
 
         def lnprior(theta):
-            m, log_sigma = theta
-            if (-5.0 < m < 5.0) and (-2 < log_sigma < 2.):
-                return 0.0
-            return -np.inf
-
+            m, sigma = theta
+            
+            if sigma < 0:
+                return -np.inf  # log(0)
+            else:
+                return -1.5 * np.log(1 + m ** 2) - np.log(sigma)
+        
         # define a gaussian likelihood for the slope and the
         # the sigma. Note that yerr is ignored
         def lnlike(theta, x, y, yerr):
-            m, log_sigma = theta
-
-            sigma = 10**log_sigma
+            m, sigma = theta
 
             model = m * x + self._b_latent
 
