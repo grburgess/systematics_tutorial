@@ -2,7 +2,7 @@ import emcee
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
-
+from scipy.special import gamma
 
 class Fit(object):
 
@@ -11,13 +11,13 @@ class Fit(object):
         self._data = data
         self._samples = samples
 
-    def plot(self):
+    def plot(self,data_color='b',latent_color='g', fit_color='y'):
 
         fig, ax = plt.subplots()
 
         # first plot the data and latent
 
-        fig = self._data.plot(ax=ax, with_latent=True)
+        fig = self._data.plot(ax=ax, with_latent=True, data_color=data_color, latent_color=latent_color)
 
         # now plot the fit
         x_values = self._data.x_latent
@@ -27,7 +27,7 @@ class Fit(object):
 
             fit_line = self._data.line(x_values, m, self._data.b_latent)
 
-            ax.plot(x_values, fit_line, color='r', alpha=0.05, zorder=-100)
+            ax.plot(x_values, fit_line, color=fit_color, alpha=0.05, zorder=-100)
 
         return fig
 
@@ -52,9 +52,11 @@ class Fit(object):
 
             return 0.
 
-        
+    @property
+    def samples(self):
+        return self._samples
     
-    def density_plot(self, cr=None, ax=None, with_latent=True, color='b', cr_color='r', cr_alpha=0.1, latent_color='w', line_alpha=1.):
+    def density_plot(self, cr=None, ax=None, with_latent=True, color='b', cr_color='r', cr_alpha=0.1, latent_color='w', line_alpha=1., height=0):
 
         if ax is None:
 
@@ -68,21 +70,22 @@ class Fit(object):
 
         xplot = np.linspace(self._samples[:, 0].min(), self._samples[:, 0].max(), 200)
 
-        ax.plot(xplot, density(xplot), color=color, alpha=line_alpha)
+        ax.plot(xplot, density(xplot)  + height, color=color, alpha=line_alpha)
 
         if cr is not None:
             l, u = self.compute_m_quantiles(cr)
             xplot = np.linspace(l, u, 200)
 
-            ax.fill_between(xplot, 0, density(xplot), color=cr_color, alpha=cr_alpha)
+            ax.fill_between(xplot, height, density(xplot) + height , color=cr_color, alpha=cr_alpha)
 
         if with_latent:
 
             ax.axvline(self._data.m_latent, ls='--', color=latent_color)
 
-
+            
         ax.set_xlabel('m')
         ax.set_ylim(bottom=0)
+        ax.set_yticks([])
         return fig
 
 
@@ -127,7 +130,7 @@ class Fitter(object):
 
         # get some initial positions
 
-        pos = [np.array([1] * self._ndim) + 1e-4 * np.random.randn(self._ndim) for i in range(self._nwalkers)]
+        pos = [np.array([2] * self._ndim) + 1e-4 * np.random.randn(self._ndim) for i in range(self._nwalkers)]
 
         # create the sampler
         sampler = emcee.EnsembleSampler(
@@ -286,23 +289,26 @@ class TFit(Fitter):
 
     def __init__(self, data_generator, latent_params, N=100):
 
-        super(TFit, self).__init__(data_generator, latent_params, N)
+        super(TFit, self).__init__(data_generator, latent_params, N, 2)
 
         # define a prior for the slope AND the sigma of the data
 
         def lnprior(theta):
             m, nu = theta
-            if (-5.0 < m < 5.0) and (-10 < np.log(sigma) < 10.):
+            if (-5.0 < m < 5.0) and (2 <= nu < 10.):
                 return 0.0
             return -np.inf
 
         # define a gaussian likelihood for the slope and the
         # the sigma. Note that yerr is ignored
         def lnlike(theta, x, y, yerr):
-            m, sigma = theta
+            m, nu = theta
             model = m * x + self._b_latent
-            inv_sigma2 = 1.0 / (sigma**2)
-            return -0.5 * (np.sum((y - model)**2 * inv_sigma2))
+            inv_sigma2 = 1.0 / (yerr**2 *(nu-2))
+            ss = (np.sum(1 + (y - model)**2 * inv_sigma2))
+
+            factor = len(x) * np.log(gamma((nu+1.)/2.)/( np.sqrt(np.pi *(nu-2)) * gamma(0.5 * nu))  )
+            return  factor + -0.5*(nu+1) * ss
 
         self._lnprior = lnprior
         self._lnlike = lnlike

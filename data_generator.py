@@ -67,7 +67,7 @@ class DataBuilder(object):
 
         return y_observed
 
-    def plot(self, ax = None, with_latent=False):
+    def plot(self, ax = None, with_latent=False, latent_color='r', data_color='b'):
 
         if ax is None:
 
@@ -77,11 +77,11 @@ class DataBuilder(object):
 
             fig = ax.get_figure()
             
-        ax.errorbar(self._x_values, self._y_observed, yerr=self._sigma, fmt='.')
+        ax.errorbar(self._x_values, self._y_observed, yerr=self._sigma, fmt='.',color=data_color)
 
         if with_latent:
 
-            ax.plot(self._x_values, self.line(self._x_values,self._m_latent, self._b_latent),'-')
+            ax.plot(self._x_values, self.line(self._x_values,self._m_latent, self._b_latent),'-', color=latent_color)
 
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
