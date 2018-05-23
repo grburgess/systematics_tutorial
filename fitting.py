@@ -312,3 +312,32 @@ class TFit(Fitter):
 
         self._lnprior = lnprior
         self._lnlike = lnlike
+
+class CauchyFit(Fitter):
+
+    def __init__(self, data_generator, latent_params, N=100):
+
+        super(CauchyFit, self).__init__(data_generator, latent_params, N, 1)
+
+        # define a prior for the slope only
+
+        def lnprior(theta):
+            m = theta
+
+            if (-5.0 < m < 5.0):
+                return 0.0
+            return -np.inf
+
+            
+
+        # define a gaussian likelihood for the slope only
+        def lnlike(theta, x, y, yerr):
+            m = theta
+            model = m * x + self._b_latent
+
+            gamma2 = yerr**2
+
+            return -np.sum(np.log( gamma2 +  (y - model)**2 ))
+
+        self._lnprior = lnprior
+        self._lnlike = lnlike

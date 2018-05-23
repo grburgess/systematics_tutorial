@@ -111,6 +111,18 @@ class TData(DataBuilder):
 
 
 
+class CauchyData(DataBuilder):
+    
+    def __init__(self, m_latent, b_latent, sigma):
+
+        self._sigma = sigma
+
+        self._dist = stats.cauchy(scale=sigma, loc=0)
+
+        super(CauchyData, self).__init__(m_latent, b_latent)
+
+
+
 
 
 
